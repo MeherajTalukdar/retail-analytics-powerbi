@@ -8,9 +8,9 @@
 
 | Domain | Problems | Focus |
 |---|---|---|
-| 📦 Sales & Revenue | #01 – #10 | GMV, forecasting, LTV, pipeline |
+| 📦 Sales & Revenue | #01 – #10 | Real-time sales tracking, MoM & YoY trends, return rate analysis, Top N product rankings, discount impact, channel attribution |
 
-| 📣 Marketing & E-commerce | #11 – #20 | ROI, cohorts, NPS, A/B testing |
+| 📣 Marketing & E-commerce | #11 – #20 | Customer LTV & segmentation, campaign ROI & ROAS, cohort retention heatmap, NPS dashboard, seasonal demand patterns, CAC by channel, brand partner performance |
 
 ---
 
