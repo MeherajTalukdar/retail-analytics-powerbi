@@ -22,23 +22,7 @@ Star schema with 12 tables built to reflect a real e-commerce analytics environm
 | `orders` | 10,000 | Core fact table — sales, returns, customer & marketing analytics |
 | `campaigns` | 300 | Marketing campaign spend and performance |
 | `calendar` | — | Date dimension (2022–2024) — all time intelligence DAX |
-| `budget` | — | Department/monthly revenue targets |
-| `employees` | — | HR master data — headcount, tenure, salaries |
-| `inventory` | — | SKU-level stock and reorder data |
-| `suppliers` | — | Supplier scorecards and delivery KPIs |
-| `recruitment` | — | Hiring funnel stages and time-to-hire |
-| `projects` | — | Project milestones, RAG status, budget |
-| `cashflow` | — | 13-week rolling cash inflow/outflow |
-| `compliance` | — | Training completion and compliance tracking |
-| `market` | — | External market benchmarks |
 
-**Key columns — `orders`:**
-`OrderID` · `OrderDate` · `DeliveryDate` · `CustomerID` · `CustomerName` · `CustomerSegment` · `AcquisitionChannel` · `Country` · `City` · `Currency` · `FX_Rate_to_EUR` · `Platform` · `Brand` · `ProductCategory` · `ProductName` · `SKU` · `Quantity` · `UnitPrice_Local` · `UnitPrice_EUR` · `COGS_EUR` · `PromoCode` · `DiscountPct` · `DiscountAmt_EUR` · `GrossRevenue_EUR` · `NetRevenue_EUR` · `GrossProfit_EUR` · `ShippingCost_EUR` · `TransactionType` · `Carrier` · `ShippingDays` · `OnTimeDelivery` · `Warehouse` · `PaymentMethod` · `NPS_Score` · `SalesRep`
-
-**Key columns — `campaigns`:**
-`CampaignID` · `CampaignName` · `Platform` · `CampaignType` · `StartDate` · `EndDate` · `TargetSegment` · `Spend_EUR` · `Impressions` · `Clicks` · `EmailOpens` · `Conversions` · `Revenue_EUR` · `NewCustomers` · `Unsubscribes`
-
----
 
 ## 📐 DAX Measures — Problems #01 to #10 (Sales & Revenue)
 
