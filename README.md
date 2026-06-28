@@ -28,634 +28,298 @@ Star schema with 12 tables built to reflect a real e-commerce analytics environm
 
 ---
 
-### #01 — Monthly Revenue Tracking
-
-**Business question:** Show total net revenue per product category per month, compared to the target — flag red/green.
+## 📐 Foundation Measures
 
 ```dax
-Total Net Revenue =
-SUM(orders[NetRevenue_EUR])
+Total Orders = 
+DISTINCTCOUNT(fact_orders[OrderID])
 
-Total Gross Revenue =
-SUM(orders[GrossRevenue_EUR])
+Net Revenue = 
+SUMX(
+    fact_orders,
+    fact_orders[Quantity] * fact_orders[UnitPrice_EUR]
+    - fact_orders[DiscountAmt_EUR]
+)
 
-Revenue vs Target =
-[Total Net Revenue] - SUM(budget[Revenue_Target_EUR])
+Gross Profit = 
+SUM(fact_orders[GrossProfit_EUR])
 
-Revenue vs Target % =
+Gross Margin % = 
+DIVIDE([Gross Profit], [Net Revenue])
+```
+
+---
+
+## 📐 DAX Measures — Problems #01 to #10 (Sales & Revenue)
+
+### #01 — Real-Time Sales Performance Dashboard
+```dax
+Revenue vs Target = 
+VAR target = 150000
+RETURN [Net Revenue] - target
+```
+
+### #02 — MoM & YoY Revenue Trend
+```dax
+Prev Month Revenue = 
+CALCULATE([Net Revenue], DATEADD(dim_calendar[Date], -1, MONTH))
+
+MoM % Change = 
+DIVIDE([Net Revenue] - [Prev Month Revenue], [Prev Month Revenue])
+
+Prev Year Revenue = 
+CALCULATE([Net Revenue], SAMEPERIODLASTYEAR(dim_calendar[Date]))
+
+YoY % Change = 
+DIVIDE([Net Revenue] - [Prev Year Revenue], [Prev Year Revenue])
+```
+
+### #03 — Product Return Rate Dashboard
+```dax
+Gross Orders = 
+CALCULATE([Total Orders], fact_orders[TransactionType] = "Sale")
+
+Return Orders = 
+CALCULATE([Total Orders], fact_orders[TransactionType] = "Return")
+
+Return Rate % = 
+DIVIDE([Return Orders], [Gross Orders])
+```
+
+### #04 — Top N Product Rankings
+```dax
+Product Rank = 
+RANKX(ALL(fact_orders[ProductName]), [Net Revenue], , DESC, Dense)
+
+Top N Filter = 
+IF([Product Rank] <= [TopN Value], 1, 0)
+```
+> 💡 Create a What-If Parameter: **Modeling → New Parameter → TopN**, Min=5, Max=50, Increment=5, Default=10. Add `[Top N Filter] = 1` as a visual-level filter on your bar chart.
+
+### #05 — Revenue by Geography
+> No new DAX needed — `[Net Revenue]` works directly. Set the `Country` column **Data Category = Country/Region** in Column tools.
+
+### #06 — Sales Funnel & Conversion Rate
+```dax
+AOV = 
+DIVIDE([Net Revenue], [Total Orders])
+
+Orders per Customer = 
 DIVIDE(
-    [Revenue vs Target],
-    SUM(budget[Revenue_Target_EUR])
+    [Total Orders],
+    CALCULATE(DISTINCTCOUNT(fact_orders[CustomerID]), fact_orders[CustomerID] <> "GUEST")
 )
 ```
 
-> 💡 Use a Matrix visual with `calendar[MonthName]` on columns and `ProductCategory` on rows. Apply conditional formatting on `Revenue vs Target %` — red below 0, green above.
-
----
-
-### #02 — Sales Rep Performance Ranking
-
-**Business question:** Rank all sales reps by quarterly revenue and flag the bottom 20%.
-
+### #07 — Discount & Promotion Impact
 ```dax
-Rep Revenue =
-CALCULATE(SUM(orders[NetRevenue_EUR]))
+Total Discount = 
+SUM(fact_orders[DiscountAmt_EUR])
 
-Sales Rep Rank =
-RANKX(
-    ALL(orders[SalesRep]),
-    [Rep Revenue],
-    ,
-    DESC,
-    DENSE
-)
+Discount % of Revenue = 
+DIVIDE([Total Discount], [Net Revenue] + [Total Discount])
 
-Bottom 20% Flag =
-VAR TotalReps  = DISTINCTCOUNT(orders[SalesRep])
-VAR Threshold  = CEILING(TotalReps * 0.2, 1)
-RETURN
-    IF(
-        [Sales Rep Rank] >= TotalReps - Threshold + 1,
-        "⚠️ Bottom 20%",
-        "✅ OK"
-    )
+Net Margin % = 
+DIVIDE([Gross Profit], [Net Revenue])
 ```
 
----
-
-### #03 — Price Elasticity Analysis
-
-**Business question:** How did a discount affect sales volume across product categories?
-
+### #08 — Revenue Forecasting
 ```dax
-Avg Unit Price EUR =
-AVERAGE(orders[UnitPrice_EUR])
-
-Total Quantity Sold =
-SUM(orders[Quantity])
-
-Avg Discount % =
-AVERAGE(orders[DiscountPct])
-
-Gross Margin % =
-DIVIDE(
-    SUM(orders[GrossProfit_EUR]),
-    SUM(orders[GrossRevenue_EUR])
-)
-```
-
-> 💡 Build a scatter chart: `Avg Discount %` on X-axis, `Total Quantity Sold` on Y-axis, `ProductCategory` on legend. Add a trend line to visualise the price-volume relationship.
-
----
-
-### #04 — Year-over-Year Revenue Growth
-
-**Business question:** YoY revenue growth % per product category for the board presentation.
-
-```dax
-Revenue PY =
+Rolling 3M Revenue = 
 CALCULATE(
-    [Total Net Revenue],
-    SAMEPERIODLASTYEAR(calendar[Date])
-)
-
-YoY Revenue Growth % =
-DIVIDE(
-    [Total Net Revenue] - [Revenue PY],
-    [Revenue PY]
-)
-
-YoY Growth (Safe) =
-IF(
-    ISBLANK([Revenue PY]),
-    BLANK(),
-    DIVIDE([Total Net Revenue] - [Revenue PY], [Revenue PY])
+    [Net Revenue],
+    DATESINPERIOD(dim_calendar[Date], LASTDATE(dim_calendar[Date]), -3, MONTH)
 )
 ```
+> 💡 For the forecast line: **Analytics Pane → Forecast → on**, set Forecast Length = 6 months, Confidence Interval = 95%.
 
----
-
-### #05 — Revenue Forecast (3-Month Moving Average)
-
-**Business question:** 3-month rolling revenue average for warehouse staffing demand planning.
-
+### #09 — Basket Size & AOV Analysis
 ```dax
-Revenue 3M Rolling Avg =
-AVERAGEX(
-    DATESINPERIOD(
-        calendar[Date],
-        LASTDATE(calendar[Date]),
-        -3,
-        MONTH
-    ),
-    CALCULATE([Total Net Revenue])
-)
-
-Revenue Prior Month =
-CALCULATE(
-    [Total Net Revenue],
-    DATEADD(calendar[Date], -1, MONTH)
-)
-
-MoM Revenue Change % =
-DIVIDE(
-    [Total Net Revenue] - [Revenue Prior Month],
-    [Revenue Prior Month]
-)
+Avg Basket Size = 
+DIVIDE(SUM(fact_orders[Quantity]), [Total Orders])
 ```
 
----
-
-### #06 — Product Return Rate Analysis
-
-**Business question:** Return rate per SKU to identify high-return products draining profit.
-
+### #10 — Channel Mix & Attribution
 ```dax
-Total Sales Orders =
-CALCULATE(
-    COUNTROWS(orders),
-    orders[TransactionType] = "Sale"
-)
-
-Total Returns =
-CALCULATE(
-    COUNTROWS(orders),
-    orders[TransactionType] = "Return"
-)
-
-Return Rate % =
-DIVIDE(
-    [Total Returns],
-    [Total Sales Orders] + [Total Returns]
-)
-
-Return Revenue Lost =
-CALCULATE(
-    SUM(orders[NetRevenue_EUR]),
-    orders[TransactionType] = "Return"
-)
+Channel Revenue Share % = 
+DIVIDE([Net Revenue], CALCULATE([Net Revenue], ALL(fact_orders[AcquisitionChannel])))
 ```
-
----
-
-### #07 — Customer Lifetime Value (LTV) Segmentation
-
-**Business question:** Segment customers into Bronze / Silver / Gold / Platinum tiers by total spend.
-
-```dax
-Customer Total Spend =
-CALCULATE(
-    SUM(orders[NetRevenue_EUR]),
-    ALLEXCEPT(orders, orders[CustomerID])
-)
-
-LTV Tier =
-VAR Spend = [Customer Total Spend]
-RETURN
-    SWITCH(
-        TRUE(),
-        Spend >= 1000, "🥇 Platinum",
-        Spend >= 500,  "🥈 Gold",
-        Spend >= 200,  "🥉 Silver",
-        "🔵 Bronze"
-    )
-
-Customers per Tier =
-CALCULATE(
-    DISTINCTCOUNT(orders[CustomerID]),
-    ALLEXCEPT(orders, orders[CustomerSegment])
-)
-```
-
----
-
-### #08 — Cross-Sell / Upsell Opportunity
-
-**Business question:** Find customers who bought Shoes but never bought Clothing — target for cross-sell campaign.
-
-```dax
-Shoes Customers =
-CALCULATETABLE(
-    VALUES(orders[CustomerID]),
-    orders[ProductCategory] = "Shoes"
-)
-
-Clothing Customers =
-CALCULATETABLE(
-    VALUES(orders[CustomerID]),
-    orders[ProductCategory] = "Clothing"
-)
-
-Cross-Sell Opportunity Count =
-VAR ShoesBuyers    = CALCULATETABLE(VALUES(orders[CustomerID]), orders[ProductCategory] = "Shoes")
-VAR ClothingBuyers = CALCULATETABLE(VALUES(orders[CustomerID]), orders[ProductCategory] = "Clothing")
-RETURN
-    COUNTROWS(EXCEPT(ShoesBuyers, ClothingBuyers))
-
-Avg Categories per Customer =
-DIVIDE(
-    COUNTROWS(orders),
-    DISTINCTCOUNT(orders[CustomerID])
-)
-```
-
----
-
-### #09 — Sales Pipeline Conversion Rate
-
-**Business question:** Track how each acquisition channel converts — which channel brings the highest-value orders?
-
-```dax
-Orders by Channel =
-CALCULATE(
-    COUNTROWS(orders),
-    ALLEXCEPT(orders, orders[AcquisitionChannel])
-)
-
-Channel Revenue Share % =
-DIVIDE(
-    CALCULATE(SUM(orders[NetRevenue_EUR])),
-    CALCULATE(SUM(orders[NetRevenue_EUR]), ALL(orders[AcquisitionChannel]))
-)
-
-Avg Order Value by Channel =
-DIVIDE(
-    SUM(orders[NetRevenue_EUR]),
-    COUNTROWS(orders)
-)
-```
-
----
-
-### #10 — Break-Even Analysis
-
-**Business question:** How many units must be sold to cover fixed + variable costs before a new product launch?
-
-```dax
-Avg Selling Price =
-AVERAGE(orders[UnitPrice_EUR])
-
-Avg COGS per Unit =
-DIVIDE(
-    SUM(orders[COGS_EUR]),
-    SUM(orders[Quantity])
-)
-
-Contribution Margin per Unit =
-[Avg Selling Price] - [Avg COGS per Unit]
-
-Contribution Margin % =
-DIVIDE(
-    [Contribution Margin per Unit],
-    [Avg Selling Price]
-)
-
-Break Even Units =
-DIVIDE(
-    'Fixed Cost Parameter'[Fixed Cost Parameter Value],
-    [Contribution Margin per Unit]
-)
-
-Break Even Revenue =
-[Break Even Units] * [Avg Selling Price]
-```
-
-> 💡 `Fixed Cost Parameter` is a What-If Parameter slicer — users drag it to model different cost scenarios interactively without changing any data.
 
 ---
 
 ## 📐 DAX Measures — Problems #11 to #20 (Marketing & E-commerce)
 
-> These measures use both the `orders` table and the `campaigns` table.
+> Before writing any DAX for #11–20, connect in Model view:
+> - `fact_campaigns[StartDate]` → `dim_calendar[Date]` (active)
+> - `fact_orders[OrderDate]` → `dim_calendar[Date]` (already done)
+> - `fact_campaigns` and `fact_orders` remain unrelated to each other — correct star schema design.
 
----
-
-### #11 — Campaign ROI Analysis
-
-**Business question:** Measure ROI for each paid campaign and rank best performers across Google, Meta, TikTok.
-
+### #11 — Customer Segmentation & LTV Dashboard
 ```dax
-Campaign ROI % =
-DIVIDE(
-    SUM(campaigns[Revenue_EUR]) - SUM(campaigns[Spend_EUR]),
-    SUM(campaigns[Spend_EUR])
-)
+Active Customers = 
+CALCULATE(DISTINCTCOUNT(fact_orders[CustomerID]), fact_orders[CustomerID] <> "GUEST")
 
-Campaign Profit =
-SUM(campaigns[Revenue_EUR]) - SUM(campaigns[Spend_EUR])
+Customer LTV = 
+DIVIDE([Net Revenue], [Active Customers])
 
-Campaign Rank by ROI =
-RANKX(
-    ALL(campaigns[CampaignName]),
-    [Campaign ROI %],
-    ,
-    DESC,
-    DENSE
-)
+Avg Orders per Customer = 
+DIVIDE([Total Orders], [Active Customers])
 
-Revenue per EUR Spent =
-DIVIDE(
-    SUM(campaigns[Revenue_EUR]),
-    SUM(campaigns[Spend_EUR])
+Recency Days = 
+DATEDIFF(
+    CALCULATE(MAX(fact_orders[OrderDate]), ALL(dim_calendar)),
+    TODAY(),
+    DAY
 )
 ```
 
----
-
-### #12 — Email Campaign Performance Dashboard
-
-**Business question:** Open rate, CTR, conversion rate, and revenue per email per customer segment.
-
+### #12 — Campaign Performance & ROI Dashboard
 ```dax
-Email Open Rate % =
-DIVIDE(
-    SUM(campaigns[EmailOpens]),
-    SUM(campaigns[Impressions])
-)
+Total Campaign Spend = 
+SUM(fact_campaigns[Spend_EUR])
 
-Click Through Rate % =
-DIVIDE(
-    SUM(campaigns[Clicks]),
-    SUM(campaigns[EmailOpens])
-)
+Total Campaign Revenue = 
+SUM(fact_campaigns[Revenue_EUR])
 
-Campaign Conversion Rate % =
-DIVIDE(
-    SUM(campaigns[Conversions]),
-    SUM(campaigns[Clicks])
-)
+ROAS = 
+DIVIDE([Total Campaign Revenue], [Total Campaign Spend])
 
-Revenue per Conversion =
-DIVIDE(
-    SUM(campaigns[Revenue_EUR]),
-    SUM(campaigns[Conversions])
-)
+CPA = 
+DIVIDE([Total Campaign Spend], SUM(fact_campaigns[Conversions]))
 
-Cost per Conversion =
-DIVIDE(
-    SUM(campaigns[Spend_EUR]),
-    SUM(campaigns[Conversions])
-)
+Campaign ROI % = 
+DIVIDE([Total Campaign Revenue] - [Total Campaign Spend], [Total Campaign Spend])
+
+CTR % = 
+DIVIDE(SUM(fact_campaigns[Clicks]), SUM(fact_campaigns[Impressions]))
 ```
 
----
-
-### #13 — Customer Cohort Retention Analysis
-
-**Business question:** Of customers acquired in January, what % are still buying in Feb, Mar, Apr…?
-
+### #13 — Customer Cohort Retention Dashboard
+> Step 1 — Add this as a **calculated column** on `fact_orders` in Data view:
 ```dax
-First Order Date =
+CohortMonth = 
+FORMAT(
+    CALCULATE(MIN(fact_orders[OrderDate]), ALLEXCEPT(fact_orders, fact_orders[CustomerID])),
+    "YYYY-MM"
+)
+```
+> Step 2 — Measures:
+```dax
+Cohort Size = 
+CALCULATE(DISTINCTCOUNT(fact_orders[CustomerID]), fact_orders[CohortMonth] = MAX(fact_orders[CohortMonth]))
+
+Retained Customers = 
+DISTINCTCOUNT(fact_orders[CustomerID])
+
+Retention Rate % = 
+DIVIDE([Retained Customers], [Cohort Size])
+```
+> 💡 Matrix visual: `CohortMonth` on rows, `dim_calendar[YearMonth]` on columns, `[Retention Rate %]` as values. Apply conditional formatting → background colour scale (white → green) for the classic cohort heat map.
+
+### #14 — Web & App Analytics (Platform Mix)
+```dax
+Mobile App Orders = 
+CALCULATE([Total Orders], fact_orders[Platform] = "Mobile App")
+
+Mobile App Share % = 
+DIVIDE([Mobile App Orders], [Total Orders])
+```
+
+### #15 — Email & CRM Campaign Performance
+```dax
+Email Open Rate % = 
 CALCULATE(
-    MIN(orders[OrderDate]),
-    ALLEXCEPT(orders, orders[CustomerID])
+    DIVIDE(SUM(fact_campaigns[EmailOpens]), SUM(fact_campaigns[Impressions])),
+    fact_campaigns[Platform] = "Email"
 )
 
-Acquisition Month =
-FORMAT(CALCULATE(MIN(orders[OrderDate]), ALLEXCEPT(orders, orders[CustomerID])), "YYYY-MM")
+Email CTR % = 
+CALCULATE(
+    DIVIDE(SUM(fact_campaigns[Clicks]), SUM(fact_campaigns[EmailOpens])),
+    fact_campaigns[Platform] = "Email"
+)
 
-Active Customers =
-DISTINCTCOUNT(orders[CustomerID])
+Email Conversion Rate % = 
+CALCULATE(
+    DIVIDE(SUM(fact_campaigns[Conversions]), SUM(fact_campaigns[Clicks])),
+    fact_campaigns[Platform] = "Email"
+)
 
-Cohort Retention % =
+Email Unsubscribe Rate % = 
+CALCULATE(
+    DIVIDE(SUM(fact_campaigns[Unsubscribes]), SUM(fact_campaigns[Impressions])),
+    fact_campaigns[Platform] = "Email"
+)
+```
+
+### #16 — Customer Complaint & NPS Dashboard
+```dax
+NPS Promoters = 
+CALCULATE(COUNTROWS(fact_orders), fact_orders[NPS_Score] >= 9, NOT ISBLANK(fact_orders[NPS_Score]))
+
+NPS Detractors = 
+CALCULATE(COUNTROWS(fact_orders), fact_orders[NPS_Score] <= 6, NOT ISBLANK(fact_orders[NPS_Score]))
+
+NPS Responses = 
+CALCULATE(COUNTROWS(fact_orders), NOT ISBLANK(fact_orders[NPS_Score]))
+
+NPS Score = 
+DIVIDE([NPS Promoters], [NPS Responses]) - DIVIDE([NPS Detractors], [NPS Responses])
+
+Avg NPS Score = 
+CALCULATE(AVERAGE(fact_orders[NPS_Score]), NOT ISBLANK(fact_orders[NPS_Score]))
+```
+> 💡 `NPS Score` runs −1 to +1. Multiply by 100 for the standard −100 to +100 scale.
+
+### #17 — Seasonal Demand Pattern Dashboard
+```dax
+Seasonal Index = 
 DIVIDE(
-    DISTINCTCOUNT(orders[CustomerID]),
-    CALCULATE(
-        DISTINCTCOUNT(orders[CustomerID]),
-        FILTER(
-            ALL(calendar),
-            calendar[YearMonth] = MIN(calendar[YearMonth])
-        )
+    [Net Revenue],
+    CALCULATE([Net Revenue], ALL(dim_calendar[Month]), ALL(dim_calendar[MonthName])) / 12
+)
+```
+> 💡 Index > 1.0 = above average month. Build a Matrix (ProductCategory on rows, MonthName on columns) with conditional formatting → colour scale (red → white → green).
+
+### #18 — Customer Acquisition Cost (CAC) by Channel
+```dax
+New Customers = 
+SUM(fact_campaigns[NewCustomers])
+
+CAC = 
+DIVIDE([Total Campaign Spend], [New Customers])
+
+LTV to CAC Ratio = 
+DIVIDE([Customer LTV], [CAC])
+```
+> 💡 LTV:CAC above 3× is healthy. Below 1× means you're losing money acquiring customers.
+
+### #19 — Product Category Affinity & Cross-Sell
+```dax
+Shoes + Clothing Customers = 
+CALCULATE(
+    DISTINCTCOUNT(fact_orders[CustomerID]),
+    FILTER(
+        VALUES(fact_orders[CustomerID]),
+        CALCULATE(COUNTROWS(fact_orders), fact_orders[ProductCategory] = "Shoes") > 0
+        &&
+        CALCULATE(COUNTROWS(fact_orders), fact_orders[ProductCategory] = "Clothing") > 0
     )
 )
 ```
 
-> 💡 Build a cohort grid in a Matrix visual — acquisition month on rows, activity month on columns, `Cohort Retention %` as values. Apply a heat map via conditional formatting (green = high retention, red = churn).
-
----
-
-### #14 — Promo Code Usage & Discount Impact
-
-**Business question:** How many orders used a promo code, how much discount was given, and what was the net revenue impact?
-
+### #20 — Brand Partner Performance Dashboard
 ```dax
-Promo Orders =
-CALCULATE(
-    COUNTROWS(orders),
-    orders[PromoCode] <> "NONE"
-)
+Brand Rank = 
+RANKX(ALL(fact_orders[Brand]), [Net Revenue], , DESC, Dense)
 
-Promo Order Rate % =
-DIVIDE(
-    [Promo Orders],
-    COUNTROWS(orders)
-)
+Brand Return Rate % = 
+CALCULATE([Return Rate %], ALLEXCEPT(fact_orders, fact_orders[Brand]))
 
-Total Discount Given =
-SUM(orders[DiscountAmt_EUR])
-
-Discount as % of Gross Revenue =
-DIVIDE(
-    SUM(orders[DiscountAmt_EUR]),
-    SUM(orders[GrossRevenue_EUR])
-)
-
-Revenue Retained After Discount =
-DIVIDE(
-    SUM(orders[NetRevenue_EUR]),
-    SUM(orders[GrossRevenue_EUR])
-)
+Brand AOV = 
+CALCULATE([AOV], ALLEXCEPT(fact_orders, fact_orders[Brand]))
 ```
-
----
-
-### #15 — Product Category Mix Analysis
-
-**Business question:** What % of revenue comes from each category, and how has the mix shifted year-over-year?
-
-```dax
-Category Revenue Share % =
-DIVIDE(
-    SUM(orders[NetRevenue_EUR]),
-    CALCULATE(SUM(orders[NetRevenue_EUR]), ALL(orders[ProductCategory]))
-)
-
-Category Revenue PY =
-CALCULATE(
-    SUM(orders[NetRevenue_EUR]),
-    SAMEPERIODLASTYEAR(calendar[Date])
-)
-
-Category Mix Shift YoY =
-[Category Revenue Share %] -
-CALCULATE(
-    [Category Revenue Share %],
-    SAMEPERIODLASTYEAR(calendar[Date])
-)
-```
-
----
-
-### #16 — Customer Acquisition Cost (CAC) by Channel
-
-**Business question:** How much does it cost to acquire one new customer per marketing channel?
-
-```dax
-Total New Customers =
-SUM(campaigns[NewCustomers])
-
-CAC by Channel =
-DIVIDE(
-    SUM(campaigns[Spend_EUR]),
-    SUM(campaigns[NewCustomers])
-)
-
-LTV to CAC Ratio =
-DIVIDE(
-    [Customer Total Spend],
-    [CAC by Channel]
-)
-```
-
-> 💡 LTV:CAC ratio above 3× is considered healthy in e-commerce. Use a KPI card with conditional formatting to flag channels below this threshold.
-
----
-
-### #17 — A/B Test Results Analysis
-
-**Business question:** Was the conversion rate difference between two campaign variants statistically meaningful?
-
-```dax
-Variant A Conversion Rate % =
-CALCULATE(
-    DIVIDE(SUM(campaigns[Conversions]), SUM(campaigns[Clicks])),
-    campaigns[CampaignType] = "Performance"
-)
-
-Variant B Conversion Rate % =
-CALCULATE(
-    DIVIDE(SUM(campaigns[Conversions]), SUM(campaigns[Clicks])),
-    campaigns[CampaignType] = "Influencer"
-)
-
-Conversion Rate Lift % =
-DIVIDE(
-    [Variant B Conversion Rate %] - [Variant A Conversion Rate %],
-    [Variant A Conversion Rate %]
-)
-```
-
-> 💡 Statistical significance testing (Z-test) is best completed in Excel or Python before importing results. In Power BI, focus on visualising the lift, confidence interval, and sample size per variant.
-
----
-
-### #18 — Seasonal Sales Pattern Analysis
-
-**Business question:** Which product categories peak in which months — used to plan stock buying cycles.
-
-```dax
-Monthly Category Revenue =
-CALCULATE(
-    SUM(orders[NetRevenue_EUR]),
-    ALLEXCEPT(orders, orders[ProductCategory], calendar[Month], calendar[Year])
-)
-
-Annual Avg Monthly Revenue =
-CALCULATE(
-    AVERAGEX(
-        VALUES(calendar[Month]),
-        CALCULATE(SUM(orders[NetRevenue_EUR]))
-    ),
-    ALL(calendar[Month])
-)
-
-Seasonal Index =
-DIVIDE(
-    [Monthly Category Revenue],
-    [Annual Avg Monthly Revenue]
-)
-```
-
-> 💡 A seasonal index above 1.0 means that month outperforms the annual average. Build a heat map matrix — categories on rows, months on columns — and apply conditional formatting. A score above 1.2 signals a clear seasonal peak.
-
----
-
-### #19 — Customer Complaint / NPS Analysis
-
-**Business question:** Calculate NPS score and detractor % by product category.
-
-```dax
-NPS Promoters =
-CALCULATE(
-    COUNTROWS(orders),
-    orders[NPS_Score] >= 9,
-    NOT(ISBLANK(orders[NPS_Score]))
-)
-
-NPS Passives =
-CALCULATE(
-    COUNTROWS(orders),
-    orders[NPS_Score] >= 7,
-    orders[NPS_Score] <= 8,
-    NOT(ISBLANK(orders[NPS_Score]))
-)
-
-NPS Detractors =
-CALCULATE(
-    COUNTROWS(orders),
-    orders[NPS_Score] <= 6,
-    NOT(ISBLANK(orders[NPS_Score]))
-)
-
-Total NPS Responses =
-[NPS Promoters] + [NPS Passives] + [NPS Detractors]
-
-NPS Score =
-DIVIDE([NPS Promoters] - [NPS Detractors], [Total NPS Responses]) * 100
-
-Detractor Rate % =
-DIVIDE([NPS Detractors], [Total NPS Responses])
-```
-
----
-
-### #20 — Influencer / Affiliate Performance Tracking
-
-**Business question:** Revenue, orders, and effective cost per acquisition per campaign platform.
-
-```dax
-Influencer Revenue =
-CALCULATE(
-    SUM(campaigns[Revenue_EUR]),
-    campaigns[CampaignType] = "Influencer"
-)
-
-Influencer Spend =
-CALCULATE(
-    SUM(campaigns[Spend_EUR]),
-    campaigns[CampaignType] = "Influencer"
-)
-
-Influencer ROI % =
-DIVIDE(
-    [Influencer Revenue] - [Influencer Spend],
-    [Influencer Spend]
-)
-
-Cost per New Customer by Platform =
-DIVIDE(
-    SUM(campaigns[Spend_EUR]),
-    SUM(campaigns[NewCustomers])
-)
-
-Platform Rank by Revenue =
-RANKX(
-    ALL(campaigns[Platform]),
-    SUM(campaigns[Revenue_EUR]),
-    ,
-    DESC,
-    DENSE
-)
+> 💡 Scatter chart (X = `[Return Rate %]`, Y = `[Net Revenue]`, Legend = Brand) — brands in the top-left (high revenue, low returns) are your best partners.
 ```
 
 ---
