@@ -9,7 +9,7 @@
 |---|---|---|
 | 📦 Sales & Revenue | #01 – #10 | GMV, forecasting, LTV, pipeline |
 
-| 📣 Marketing & E-commerce | #41 – #50 | ROI, cohorts, NPS, A/B testing |
+| 📣 Marketing & E-commerce | #11 – #20 | ROI, cohorts, NPS, A/B testing |
 
 ---
 
@@ -689,7 +689,7 @@ RANKX(
 | `SWITCH(TRUE())` | #07 — multi-condition tier logic |
 | `CALCULATETABLE` | #08 — virtual table filtering |
 | `DIVIDE` | Throughout — safe division with blank handling |
-| `ISBLANK` | #04, #49 — null-safe calculations |
+| `ISBLANK` | #04, #19 — null-safe calculations |
 | What-If Parameter | #10 — interactive break-even modelling |
 
 ---
@@ -701,8 +701,7 @@ RANKX(
 
 ## 👤 About
 
-**Meheraj Talukdar** | Junior Data Analyst | Düsseldorf, Germany
+**Meheraj Talukdar** |  Junior Business Data Analyst | Düsseldorf, Germany
 🔗 GitHub: [MeherajTalukdar](https://github.com/MeherajTalukdar) · 📊 Power BI · SQL · Excel · DAX
 🎯 Target roles: Data Analyst · BI Analyst · Reporting Analyst · Controlling
 
-*Built as part of an analytics portfolio targeting junior analyst roles in the German job market.*
