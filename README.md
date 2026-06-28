@@ -328,22 +328,17 @@ CALCULATE([AOV], ALLEXCEPT(fact_orders, fact_orders[Brand]))
 
 | Function | Used In |
 |---|---|
-| `RANKX` | #02, #41, #50 — ranking reps, campaigns, platforms |
-| `SAMEPERIODLASTYEAR` | #04, #45 — YoY growth and category mix shift |
-| `DATESINPERIOD` | #05 — 3-month rolling average |
-| `DATEADD` | #05 — month-over-month comparison |
-| `ALLEXCEPT` | #07, #43 — customer-level aggregation while keeping one filter |
-| `EXCEPT` | #08 — cross-sell gap identification |
-| `SWITCH(TRUE())` | #07 — multi-condition tier logic |
-| `CALCULATETABLE` | #08 — virtual table filtering |
+| `RANKX` |  ranking reps, campaigns, platforms |
+| `SAMEPERIODLASTYEAR` |  YoY growth and category mix shift |
+| `DATESINPERIOD` |  2-month rolling average |
+| `DATEADD` |  month-over-month comparison |
+| `ALLEXCEPT` | customer-level aggregation while keeping one filter |
+| `EXCEPT` |  cross-sell gap identification |
+| `SWITCH(TRUE())` |  multi-condition tier logic |
+| `CALCULATETABLE` |  virtual table filtering |
 | `DIVIDE` | Throughout — safe division with blank handling |
-| `ISBLANK` | #04, #19 — null-safe calculations |
-| What-If Parameter | #10 — interactive break-even modelling |
+| `ISBLANK` |  null-safe calculations |
 
----
-
-
-```
 
 ---
 
