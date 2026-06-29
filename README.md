@@ -1,7 +1,7 @@
 # retail-analytics-powerbi
 
 ## E-commerce Analytics in Power BI — Sales, Marketing & Customer Insights
-### From Raw Data to Dashboard | German Job Market Focus
+### From Raw Data to Dashboard
 
 Power BI retail analytics project: data cleaning in Power Query, star schema modelling, and executive dashboards covering sales performance, campaign ROI, and customer behaviour.
 
@@ -601,8 +601,8 @@ retail-analytics-powerbi/
 
 ## About
 
-Meheraj Talukdar — Junior Data Analyst — Dusseldorf, Germany
+Meheraj Talukdar — Junior Business Data Analyst — Dusseldorf, Germany
 
 GitHub: github.com/MeherajTalukdar
 Stack: Power BI · SQL · Excel · DAX
-Target roles: Data Analyst · BI Analyst · Reporting Analyst · Controlling
+Target roles: BI Analyst · Reporting Analyst · Controlling
